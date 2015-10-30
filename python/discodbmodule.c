@@ -1,5 +1,5 @@
-#include <Python.h>
 #define PY_SSIZE_T_CLEAN
+#include <Python.h>
 
 #ifndef Py_TYPE
 #define Py_TYPE(ob)   (((PyObject*)(ob))->ob_type)
@@ -128,7 +128,11 @@ DiscoDB_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
         *items = NULL,
         *iteritems = NULL,
         *none = NULL,
+#if PY_MAJOR_VERSION >= 3
+        *typedict = Py_BuildValue("{y:O}", "ddb_type", type);
+#else
         *typedict = Py_BuildValue("{s:O}", "ddb_type", type);
+#endif
 
     if (typedict == NULL || emptytuple == NULL)
       goto Done;
@@ -394,7 +398,11 @@ DiscoDB_dumps(DiscoDB *self)
 {
     uint64_t length;
     char *cbuffer = ddb_dumps(self->discodb, &length);
+#if PY_MAJOR_VERISION >= 3
+    PyObject *string = Py_BuildValue("y#", cbuffer, length);
+#else
     PyObject *string = Py_BuildValue("s#", cbuffer, length);
+#endif
     free(cbuffer);
     return string;
 }
@@ -692,7 +700,11 @@ DiscoDBConstructor_add(DiscoDBConstructor *self, PyObject *item)
     uint64_t n;
     struct ddb_entry kentry, ventry;
 
+#if PY_MAJOR_VERSION >= 3
+    if (!PyArg_ParseTuple(item, "y#O", &kentry.data, &kentry.length, &values))
+#else
     if (!PyArg_ParseTuple(item, "s#O", &kentry.data, &kentry.length, &values))
+#endif
       goto Done;
 
     Py_XINCREF(values);
@@ -893,7 +905,12 @@ DiscoDBIter_iternext(DiscoDBIter *self)
     if (next == NULL)
         return NULL;
 
+#if PY_MAJOR_VERSION >= 3
+    return Py_BuildValue("y#", next->data, next->length);
+#else
     return Py_BuildValue("s#", next->data, next->length);
+#endif
+
 }
 
 /* DiscoDB View Type */

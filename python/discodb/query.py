@@ -234,7 +234,7 @@ class Literal(object):
     A potential key in a discodb (or its negation).
     """
     def __init__(self, term, negated=False):
-        self.term    = term
+        self.term    = term.encode('utf-8')
         self.negated = negated
 
     def __and__(self, other):
