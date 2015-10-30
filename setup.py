@@ -4,7 +4,7 @@ from distutils.core import Extension
 
 discodb_module = Extension('discodb._discodb',
                            sources=['python/discodbmodule.c'] + glob.glob('src/*.c'),
-                           include_dirs=['src'],
+                           include_dirs=['src', '/usr/local/include'],
                            libraries=['cmph'])
 
 setup(name='discodb',

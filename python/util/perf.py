@@ -47,13 +47,13 @@ def time_db(numvs=10000, vsize=1024, number=100):
                       "import perf;"\
                       "d = perf.create_db(%s, %s, %s)" % (numvs, vsize, disable_compression),
                       number=number)
-    print "%s values of size %s bytes" % (numvs, vsize)
+    print("%s values of size %s bytes" % (numvs, vsize))
     for disable_compression in (True, False):
-        print "with%s compression" % ('out' if disable_compression else ' (possible)')
-        print "\tlen\tsum\tsum / len"
+        print("with%s compression" % ('out' if disable_compression else ' (possible)'))
+        print("\tlen\tsum\tsum / len")
         len_t = timer('len_all', disable_compression)
         sum_t = timer('sum_all', disable_compression)
-        print "\t%.3f\t%.3f\t%.3f" % (len_t, sum_t, sum_t / len_t)
+        print("\t%.3f\t%.3f\t%.3f" % (len_t, sum_t, sum_t / len_t))
 
 if __name__ == '__main__':
     time_db()

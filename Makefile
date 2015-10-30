@@ -49,4 +49,4 @@ erlang:
 
 python: CMD = build
 python:
-	(cd python && $(PYTHON) setup.py $(CMD))
+	$(PYTHON) setup.py $(CMD)

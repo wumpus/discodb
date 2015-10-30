@@ -1,13 +1,14 @@
+#include <Python.h>
 #define PY_SSIZE_T_CLEAN
 
-#if PY_VERSION_HEX < 0x02060000
-#define PyVarObject_HEAD_INIT(type, size) PyObject_HEAD_INIT(type) size,
+#ifndef Py_TYPE
 #define Py_TYPE(ob)   (((PyObject*)(ob))->ob_type)
-#define PyBytes_AsString PyString_AsString
-#define PyBytes_FromFormat PyString_FromFormat
 #endif
 
-#include <Python.h>
+#if PY_MAJOR_VERSION < 3
+#define PyBytes_AsString PyString_AsString
+#endif
+
 #include "structmember.h"
 
 #include "discodb.h"
@@ -433,7 +434,11 @@ DiscoDB_loads(PyTypeObject *type, PyObject *bytes)
     Py_ssize_t n;
 
     if (self != NULL) {
+#if PY_MAJOR_VERSION >= 3
+        if (PyBytes_AsStringAndSize(bytes, (char**)&buffer, &n))
+#else
         if (PyString_AsStringAndSize(bytes, (char**)&buffer, &n))
+#endif
             goto Done;
 
         Py_INCREF(bytes);
@@ -503,31 +508,56 @@ DiscoDB_load(PyTypeObject *type, PyObject *args)
 
 /* Module Initialization */
 
+#if PY_MAJOR_VERSION >= 3
+static struct PyModuleDef moduledef = {
+    PyModuleDef_HEAD_INIT,
+    "_discodb",             /* m_name */
+    NULL,                   /* m_doc */
+    -1,                     /* m_size */
+    discodb_methods,        /* m_methods */
+    NULL,                   /* m_reload */
+    NULL,                   /* m_traverse */
+    NULL,                   /* m_clear */
+    NULL,                   /* m_free */
+};
+#define MOD_ERROR_VAL NULL
+#else
+#define MOD_ERROR_VAL
+#endif
+
 PyMODINIT_FUNC
+#if PY_MAJOR_VERSION >= 3
+PyInit__discodb(void)
+#else
 init_discodb(void)
+#endif
 {
+#if PY_MAJOR_VERSION >= 3
+    PyObject *module = PyModule_Create(&moduledef);
+#else
     PyObject *module = Py_InitModule("_discodb", discodb_methods);
+#endif
 
     if (PyType_Ready(&DiscoDBType) < 0)
-        return;
+        return MOD_ERROR_VAL;
     Py_INCREF(&DiscoDBType);
     PyModule_AddObject(module, "_DiscoDB",
                        (PyObject *)&DiscoDBType);
 
     if (PyType_Ready(&DiscoDBConstructorType) < 0)
-      return;
+      return MOD_ERROR_VAL;
     Py_INCREF(&DiscoDBConstructorType);
     PyModule_AddObject(module, "DiscoDBConstructor",
                        (PyObject *)&DiscoDBConstructorType);
 
     if (PyType_Ready(&DiscoDBIterType) < 0)
-      return;
+      return MOD_ERROR_VAL;
     Py_INCREF(&DiscoDBIterType);
     PyModule_AddObject(module, "DiscoDBIter",
                        (PyObject *)&DiscoDBIterType);
 
     if (PyType_Ready(&DiscoDBViewType) < 0)
-      return;
+      return MOD_ERROR_VAL;
     Py_INCREF(&DiscoDBViewType);
     PyModule_AddObject(module, "DiscoDBView",
                        (PyObject *)&DiscoDBViewType);
@@ -535,6 +565,9 @@ init_discodb(void)
     DiscoDBError = PyErr_NewException("discodb.DiscoDBError", NULL, NULL);
     Py_INCREF(DiscoDBError);
     PyModule_AddObject(module, "DiscoDBError", DiscoDBError);
+#if PY_MAJOR_VERSION >= 3
+    return module;
+#endif
 }
 
 
@@ -667,7 +700,11 @@ DiscoDBConstructor_add(DiscoDBConstructor *self, PyObject *item)
     if (values == NULL)
       values = PyTuple_New(0);
 
+#if PY_MAJOR_VERSION >= 3
+    if (PyBytes_Check(values))
+#else
     if (PyString_Check(values))
+#endif
       valueseq = Py_BuildValue("(O)", values);
     else
       Py_XINCREF(valueseq = values);
@@ -827,13 +864,21 @@ DiscoDBIter_count(DiscoDBIter *self)
     Py_ssize_t n = ddb_cursor_count(self->cursor, &errcode);
     if (errcode)
         return PyErr_NoMemory();
+#if PY_MAJOR_VERSION >= 3
+    return PyLong_FromSsize_t(n);
+#else
     return PyInt_FromSsize_t(n);
+#endif
 }
 
 static PyObject *
 DiscoDBIter_size(DiscoDBIter *self)
 {
+#if PY_MAJOR_VERSION >= 3
+    return PyLong_FromSsize_t(ddb_resultset_size(self->cursor));
+#else
     return PyInt_FromSsize_t(ddb_resultset_size(self->cursor));
+#endif
 }
 
 static PyObject *
@@ -1039,7 +1084,11 @@ static int
 ddb_string_to_entry(PyObject *str, struct ddb_entry *e)
 {
     Py_ssize_t len = 0;
+#if PY_MAJOR_VERSION >= 3
+    if (PyBytes_AsStringAndSize(str, (char**)&e->data, &len))
+#else
     if (PyString_AsStringAndSize(str, (char**)&e->data, &len))
+#endif
         return 1;
     if (len < UINT32_MAX){
         e->length = len;

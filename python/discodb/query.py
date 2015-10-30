@@ -38,6 +38,7 @@ True
 [('D', ['F']), ('E | D', ['F', 'G'])]
 """
 from operator import __and__, __or__
+from six.moves import reduce
 
 class Q(object):
     """
@@ -72,8 +73,8 @@ class Q(object):
     def __pos__(self):
         return Q((Clause((MetaLiteral(self), )), ))
 
-    def __cmp__(self, other):
-        return cmp(str(self), str(other))
+    def __lt__(self, other):
+        return str(self) < str(other)
 
     def __eq__(self, other):
         return self.clauses == other.clauses
