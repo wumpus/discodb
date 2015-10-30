@@ -117,9 +117,9 @@ class Q(object):
     @classmethod
     def parse(cls, string):
         """
-        Parse a string into a Q object.
+        Parse text into a Q object.
 
-        The parsed string is subject to the following conditions:
+        The parsed text is subject to the following conditions:
 
          - `*` characters will be replaced with `+`
          - literal terms cannot contain the characters `&|~+()`
@@ -128,7 +128,7 @@ class Q(object):
          - parentheses make operator precedence explicit
          - `+` characters introduce a dereferencing operation
 
-        The string will be parsed into a logical combination of the terms,
+        The text will be parsed into a logical combination of the terms,
         which will be stored internally in conjunctive normal form.
 
         Dereferencing is performed when the

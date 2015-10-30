@@ -63,7 +63,9 @@ class DiscoDB(_DiscoDB):
         return DiscoDBInquiry(lambda: super(DiscoDB, self).__getitem__(key))
 
     def get(self, key, default=None):
-        """self[key] if key in self, else default."""
+        """self[key] if key in self, else default.
+        keys are bytes.
+        """
         if key in self:
             return self[key]
         return default
@@ -98,8 +100,8 @@ class DiscoDB(_DiscoDB):
         """
         an inquiry over the values of self whose keys satisfy the query.
 
-        The query can be either a :class:`Q` object, or a string.
-        If a string, it is transformed into a :class:`Q` via :meth:`Q.parse`.
+        The query can be either a :class:`Q` object, or text.
+        If text, it is transformed into a :class:`Q` via :meth:`Q.parse`.
         """
         if isinstance(query, six.string_types):
             query = Q.parse(query)
