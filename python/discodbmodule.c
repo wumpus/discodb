@@ -1,11 +1,13 @@
 #define PY_SSIZE_T_CLEAN
 
+/*
 #if PY_VERSION_HEX < 0x02060000
 #define PyVarObject_HEAD_INIT(type, size) PyObject_HEAD_INIT(type) size,
 #define Py_TYPE(ob)   (((PyObject*)(ob))->ob_type)
 #define PyBytes_AsString PyString_AsString
 #define PyBytes_FromFormat PyString_FromFormat
 #endif
+*/
 
 #include <Python.h>
 #include "structmember.h"
@@ -433,7 +435,7 @@ DiscoDB_loads(PyTypeObject *type, PyObject *bytes)
     Py_ssize_t n;
 
     if (self != NULL) {
-        if (PyString_AsStringAndSize(bytes, (char**)&buffer, &n))
+        if (PyBytes_AsStringAndSize(bytes, (char**)&buffer, &n))
             goto Done;
 
         Py_INCREF(bytes);
@@ -503,31 +505,40 @@ DiscoDB_load(PyTypeObject *type, PyObject *args)
 
 /* Module Initialization */
 
-PyMODINIT_FUNC
-init_discodb(void)
+static struct PyModuleDef discodb_moduledef = {
+    PyModuleDef_HEAD_INIT,
+    "_discodb",
+    NULL,
+    -1,
+    discodb_methods
+};
+
+
+/*PyObject *PyInit__discodb(void)*/
+PyMODINIT_FUNC PyInit__discodb(void)
 {
-    PyObject *module = Py_InitModule("_discodb", discodb_methods);
+    PyObject *module = PyModule_Create(&discodb_moduledef);
 
     if (PyType_Ready(&DiscoDBType) < 0)
-        return;
+        return (PyObject *)NULL;
     Py_INCREF(&DiscoDBType);
     PyModule_AddObject(module, "_DiscoDB",
                        (PyObject *)&DiscoDBType);
 
     if (PyType_Ready(&DiscoDBConstructorType) < 0)
-      return;
+      return (PyObject *)NULL;
     Py_INCREF(&DiscoDBConstructorType);
     PyModule_AddObject(module, "DiscoDBConstructor",
                        (PyObject *)&DiscoDBConstructorType);
 
     if (PyType_Ready(&DiscoDBIterType) < 0)
-      return;
+      return (PyObject *)NULL;
     Py_INCREF(&DiscoDBIterType);
     PyModule_AddObject(module, "DiscoDBIter",
                        (PyObject *)&DiscoDBIterType);
 
     if (PyType_Ready(&DiscoDBViewType) < 0)
-      return;
+      return (PyObject *)NULL;
     Py_INCREF(&DiscoDBViewType);
     PyModule_AddObject(module, "DiscoDBView",
                        (PyObject *)&DiscoDBViewType);
@@ -535,6 +546,8 @@ init_discodb(void)
     DiscoDBError = PyErr_NewException("discodb.DiscoDBError", NULL, NULL);
     Py_INCREF(DiscoDBError);
     PyModule_AddObject(module, "DiscoDBError", DiscoDBError);
+
+    return module;
 }
 
 
@@ -659,6 +672,7 @@ DiscoDBConstructor_add(DiscoDBConstructor *self, PyObject *item)
     uint64_t n;
     struct ddb_entry kentry, ventry;
 
+    // the key can be either str or bytes thanks to 's'
     if (!PyArg_ParseTuple(item, "s#O", &kentry.data, &kentry.length, &values))
       goto Done;
 
@@ -667,9 +681,12 @@ DiscoDBConstructor_add(DiscoDBConstructor *self, PyObject *item)
     if (values == NULL)
       values = PyTuple_New(0);
 
-    if (PyString_Check(values))
+    // we assume that the value is either str, or a sequence of str
+    // this hurts our error messages
+    if (PyUnicode_Check(values))
       valueseq = Py_BuildValue("(O)", values);
     else
+      // e.g. an int gives TypeError: 'int' object not iterable 
       Py_XINCREF(valueseq = values);
 
     if (valueseq == NULL)
@@ -680,8 +697,9 @@ DiscoDBConstructor_add(DiscoDBConstructor *self, PyObject *item)
       goto Done;
 
     for (n = 0; (value = PyIter_Next(itervalues)); n++) {
+
       if (ddb_string_to_entry(value, &ventry))
-          goto Done;
+        goto Done;
 
       if (ddb_cons_add(self->ddb_cons, &kentry, &ventry)) {
         PyErr_SetString(DiscoDBError, "Construction failed");
@@ -827,13 +845,13 @@ DiscoDBIter_count(DiscoDBIter *self)
     Py_ssize_t n = ddb_cursor_count(self->cursor, &errcode);
     if (errcode)
         return PyErr_NoMemory();
-    return PyInt_FromSsize_t(n);
+    return PyLong_FromSsize_t(n);
 }
 
 static PyObject *
 DiscoDBIter_size(DiscoDBIter *self)
 {
-    return PyInt_FromSsize_t(ddb_resultset_size(self->cursor));
+    return PyLong_FromSsize_t(ddb_resultset_size(self->cursor));
 }
 
 static PyObject *
@@ -1039,7 +1057,11 @@ static int
 ddb_string_to_entry(PyObject *str, struct ddb_entry *e)
 {
     Py_ssize_t len = 0;
-    if (PyString_AsStringAndSize(str, (char**)&e->data, &len))
+    // py3c has PyStr_AsUTF8String
+    // is TypeError: bad argument type for built-in operation raised here?
+    // XXX do I need to copy data? e->data points to a buffer owned by the python object
+    e->data = PyUnicode_AsUTF8AndSize(str, &len);
+    if (e->data == NULL)
         return 1;
     if (len < UINT32_MAX){
         e->length = len;
